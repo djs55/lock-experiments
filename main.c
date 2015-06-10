@@ -5,8 +5,11 @@
 #include <stdio.h>
 #include <unistd.h>
 
+/* If we lose the lock, we guarantee to self-fence after this time. */
+const int self_fence_interval = 5;
+
 void tickle_watchdog() {
-  fprintf(stderr, "I am holding the lock; resetting watchdog timer.\n");
+  fprintf(stderr, "I am holding the lock; resetting watchdog timer; will self-fence in %d seconds.\n", self_fence_interval);
 }
 
 int lock(const char *filename) {
@@ -22,7 +25,7 @@ int lock(const char *filename) {
     _exit(1);
   }
 acquiring:
-  nattempts = 10;
+  nattempts = self_fence_interval * 2; /* NB: safety margin */
   while (nattempts-- > 0) {
     sleep(1);
     if (fcntl(fd, F_SETLK, &l) == -1) {
