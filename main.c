@@ -13,6 +13,27 @@
 
 int verbose = 0;
 
+void main_loop(const char *host_lock_path, const char *master_lock_path) {
+  struct lock host_lock, master_lock;
+  int joined_cluster = 0;
+
+  lock_init(&host_lock, host_lock_path);
+  lock_init(&master_lock, master_lock_path);
+
+  while(1) {
+    sleep(1);
+    lock_poll(&host_lock);
+    lock_poll(&master_lock);
+
+    if (!joined_cluster && host_lock.acquired) {
+      joined_cluster = 1;
+      printf("I have joined the cluster and can safely start VMs.\n");
+      fflush(stdout);
+    }
+
+  }
+}
+
 int main(int argc, char **argv) {
   char *uuid; /* This host's uuid */
   int c, digit_optind = 0;
@@ -56,6 +77,5 @@ int main(int argc, char **argv) {
   }
 
   snprintf(uuid_lock_path, sizeof(uuid_lock_path), ".ha/host/%s.lock", uuid);
-  lock(uuid_lock_path);
-  exit(0);
+  main_loop(uuid_lock_path, ".ha/master.lock");
 }
