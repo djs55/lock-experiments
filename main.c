@@ -13,6 +13,11 @@
 
 int verbose = 0;
 
+/* Called to reset the Xen watchdog timer */
+void tickle_watchdog() {
+
+}
+
 void main_loop(const char *host_lock_path,
                const char *master_lock_path,
                char **other_lock_paths,
@@ -36,10 +41,17 @@ void main_loop(const char *host_lock_path,
 
   while(1) {
     sleep(1);
+
+    tickle_watchdog ();
+
     state = lock_acquire(&host_lock);
     if (state == ACQUIRED) {
       printf("I have joined the cluster and can safely start VMs.\n");
       fflush(stdout);
+    }
+    if (state == LOST) {
+      printf("I have lost my host lock, I must self-fence.\n");
+      exit(1); /* let the watchdog kill us */
     }
 
     state = lock_acquire(&master_lock);
@@ -47,6 +59,11 @@ void main_loop(const char *host_lock_path,
       printf("I have taken the master role.\n");
       fflush(stdout);
     }
+    if (state == LOST) {
+      printf("I have lost the master lock, I must self-fence.\n");
+      exit(1); /* let the watchdog kill us */
+    }
+
     if (master_lock.acquired) {
       for (i = 0; i < n_other_lock_paths; i++) {
         if (*(host_has_self_fenced + i)) {
