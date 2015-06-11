@@ -33,20 +33,20 @@ void main_loop(const char *host_lock_path,
 
   while(1) {
     sleep(1);
-    state = lock_poll(&host_lock);
+    state = lock_acquire(&host_lock);
     if (state == ACQUIRED) {
       printf("I have joined the cluster and can safely start VMs.\n");
       fflush(stdout);
     }
 
-    state = lock_poll(&master_lock);
+    state = lock_acquire(&master_lock);
     if (state == ACQUIRED) {
       printf("I have taken the master role.\n");
       fflush(stdout);
     }
     if (master_lock.acquired) {
       for (i = 0; i < n_other_lock_paths; i++) {
-        lock_poll(other_locks + i);
+        lock_acquire(other_locks + i);
       }
     }
   }

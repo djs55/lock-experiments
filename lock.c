@@ -34,7 +34,7 @@ enum state {
   LOST       /* I've lost the lock */
 };
 
-enum state lock_poll(struct lock *l) {
+enum state lock_acquire(struct lock *l) {
   struct flock fl;
   int ret;
 
