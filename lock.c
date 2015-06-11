@@ -26,7 +26,15 @@ void lock_init(struct lock *l, const char *filename) {
   l->nattempts_remaining = self_fence_interval * 2; /* NB: safety margin */
 }
 
-void lock_poll(struct lock *l) {
+enum state {
+  FAILED,    /* someone else has the lock */
+  WAITING,   /* I'm waiting for someone else to self-fence */
+  ACQUIRED,  /* I've just got the lock */
+  HOLDING,   /* I'm still holding the lock */
+  LOST       /* I've lost the lock */
+};
+
+enum state lock_poll(struct lock *l) {
   struct flock fl;
   int ret;
 
@@ -38,17 +46,22 @@ void lock_poll(struct lock *l) {
     if (fcntl(l->fd, F_SETLK, &fl) == -1) {
       fprintf(stderr, "Failed to acquire the lock on %s\n", l->filename);
       fflush(stderr);
-      return;
+      return FAILED;
     } else {
       fprintf(stderr, "I am hoping to acquire %s in %d seconds\n", l->filename, l->nattempts_remaining);
       fflush(stderr);
       l->nattempts_remaining--;
-      return;
+      return WAITING;
     }
   };
-  l->acquired = 1;
   if (fcntl(l->fd, F_SETLK, &fl) == -1) {
     fprintf(stderr, "Lost the lock on %s\n", l->filename);
-    _exit(1);
+    fflush(stderr);
+    return LOST;
   }
+  if (!l->acquired) {
+    l->acquired = 1;
+    return ACQUIRED;
+  }
+  return HOLDING;
 }

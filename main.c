@@ -19,7 +19,8 @@ void main_loop(const char *host_lock_path,
                int n_other_lock_paths) {
   struct lock host_lock, master_lock;
   struct lock *other_locks;
-  int i, joined_cluster = 0, become_master = 0;
+  enum state state;
+  int i;
 
   lock_init(&host_lock, host_lock_path);
   lock_init(&master_lock, master_lock_path);
@@ -32,20 +33,18 @@ void main_loop(const char *host_lock_path,
 
   while(1) {
     sleep(1);
-    lock_poll(&host_lock);
-    lock_poll(&master_lock);
-
-    if (!joined_cluster && host_lock.acquired) {
-      joined_cluster = 1;
+    state = lock_poll(&host_lock);
+    if (state == ACQUIRED) {
       printf("I have joined the cluster and can safely start VMs.\n");
       fflush(stdout);
     }
-    if (!become_master && master_lock.acquired) {
-      become_master = 1;
+
+    state = lock_poll(&master_lock);
+    if (state == ACQUIRED) {
       printf("I have taken the master role.\n");
       fflush(stdout);
     }
-    if (become_master) {
+    if (master_lock.acquired) {
       for (i = 0; i < n_other_lock_paths; i++) {
         lock_poll(other_locks + i);
       }
