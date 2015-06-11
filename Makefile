@@ -1,1 +1,1 @@
-main: main.o
+main: main.o lock.o
