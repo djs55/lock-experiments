@@ -19,7 +19,7 @@ int lock(const char *filename) {
   l.l_type = F_WRLCK;
   l.l_start = 0; /* from the start... */
   l.l_len = 0;   /* ... to the end */
-
+  l.l_whence = SEEK_SET;
   if ((fd = open(filename, O_RDWR | O_CREAT, 0644)) == -1) {
     perror(filename);
     _exit(1);
