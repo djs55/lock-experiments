@@ -42,6 +42,21 @@ void lock_release(struct lock *l) {
   l->nattempts_remaining = self_fence_interval * 2;
 }
 
+int is_lock_held(struct lock *l) {
+  struct flock fl;
+
+  fl.l_type = F_WRLCK;
+  fl.l_start = 0; /* from the start... */
+  fl.l_len = 0;   /* ... to the end */
+  fl.l_whence = SEEK_SET;
+
+  if (fcntl(l->fd, F_GETLK, &fl) == -1) {
+      fprintf(stderr, "Failed query the lock on %s\n", l->filename);
+      fflush(stderr);
+  };
+  return (fl.l_type == F_UNLCK);
+}
+
 enum state {
   FAILED,    /* someone else has the lock */
   WAITING,   /* I'm waiting for someone else to self-fence */

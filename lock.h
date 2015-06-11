@@ -20,3 +20,6 @@ extern void lock_init(struct lock *lock, const char *filename);
 extern enum state lock_acquire(struct lock *lock);
 
 extern void lock_release(struct lock *lock);
+
+/* Return true if someone (else) has already locked the lock */
+extern int is_lock_held(struct lock *lock);
