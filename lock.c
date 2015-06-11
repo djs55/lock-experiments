@@ -54,7 +54,7 @@ int is_lock_held(struct lock *l) {
       fprintf(stderr, "Failed query the lock on %s\n", l->filename);
       fflush(stderr);
   };
-  return (fl.l_type == F_UNLCK);
+  return (fl.l_type != F_UNLCK);
 }
 
 enum state {

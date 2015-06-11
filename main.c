@@ -19,6 +19,7 @@ void main_loop(const char *host_lock_path,
                int n_other_lock_paths) {
   struct lock host_lock, master_lock;
   struct lock *other_locks;
+  int *host_has_self_fenced;
   enum state state;
   int i;
 
@@ -26,9 +27,11 @@ void main_loop(const char *host_lock_path,
   lock_init(&master_lock, master_lock_path);
 
   other_locks = (struct lock*) malloc(n_other_lock_paths * sizeof (struct lock));
-  if (!other_locks) abort ();
+  host_has_self_fenced = (int *) malloc(n_other_lock_paths * sizeof(int));
+  if (!other_locks || !host_has_self_fenced) abort ();
   for (i = 0; i < n_other_lock_paths; i++) {
     lock_init(other_locks + i, *(other_lock_paths + i));
+    *(host_has_self_fenced + i) = 0;
   }
 
   while(1) {
@@ -46,7 +49,26 @@ void main_loop(const char *host_lock_path,
     }
     if (master_lock.acquired) {
       for (i = 0; i < n_other_lock_paths; i++) {
-        lock_acquire(other_locks + i);
+        if (*(host_has_self_fenced + i)) {
+          /* We have already restarted this host's VMs after it self-fenced.
+             We wait for it to come back online. */
+          if (is_lock_held(other_locks + i)) {
+            printf("Another host has re-locked %s.\n", (other_locks + i)->filename);
+            fflush(stdout);
+            *(host_has_self_fenced + i) = 0;
+            /* We will now start competing with this host for its lock. */
+          }
+        } else {
+          /* We constantly try to acquire another host's lock to sieze
+             its resources and restart its VMs. */
+          state = lock_acquire(other_locks + i);
+          if (state == ACQUIRED) {
+            printf("I have sized the lock %s: It must have self-fenced. I should restart VMs.\n", (other_locks + i)->filename);
+            fflush(stdout);
+            *(host_has_self_fenced + i) = 1;
+            lock_release(other_locks + i);
+          }
+        }
       }
     }
   }
