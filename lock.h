@@ -16,6 +16,7 @@ enum state {
 
 extern void lock_init(struct lock *lock, const char *filename);
 
-/* Attempt to acquire and hold a lock */
+/* Call this periodically to acquire and hold a lock */
 extern enum state lock_acquire(struct lock *lock);
 
+extern void lock_release(struct lock *lock);

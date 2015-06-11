@@ -26,6 +26,22 @@ void lock_init(struct lock *l, const char *filename) {
   l->nattempts_remaining = self_fence_interval * 2; /* NB: safety margin */
 }
 
+void lock_release(struct lock *l) {
+  struct flock fl;
+
+  fl.l_type = F_UNLCK;
+  fl.l_start = 0; /* from the start... */
+  fl.l_len = 0;   /* ... to the end */
+  fl.l_whence = SEEK_SET;
+
+  if (fcntl(l->fd, F_SETLK, &fl) == -1) {
+      fprintf(stderr, "Failed to release the lock on %s\n", l->filename);
+      fflush(stderr);
+  };
+  l->acquired = 0;
+  l->nattempts_remaining = self_fence_interval * 2;
+}
+
 enum state {
   FAILED,    /* someone else has the lock */
   WAITING,   /* I'm waiting for someone else to self-fence */
