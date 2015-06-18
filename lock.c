@@ -4,9 +4,54 @@
 #include <sys/stat.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/inotify.h>
+#include <limits.h>
+#include <stdlib.h>
+#include <errno.h>
 
 /* If we lose the lock, we guarantee to self-fence after this time. */
 const int self_fence_interval = 5;
+
+struct watcher {
+  int fd;
+  int watch;
+  pthread_t thread;
+};
+
+void watcher_main(void *param) {
+  struct watcher *w = (struct watcher *)param;
+  struct inotify_event *event;
+  char buf[sizeof(struct inotify_event) + NAME_MAX + 1];
+  int n;
+
+  while (1) {
+    if ((n = read(w->fd, buf, sizeof(buf))) <= 0) {
+      fprintf(stderr, "Failed to read from inotify, self-fencing\n");
+      exit (1);
+    }
+    event = (struct inotify_event *) buf;
+    fprintf(stderr, "Received an event from inotify, self-fencing\n");
+    exit (1);
+  }
+}
+
+void watcher_init(struct watcher *w) {
+  if ((mkdir(".ha", 0755) == -1) && (errno != EEXIST)) {
+    perror("Failed to mkdir .ha");
+  }
+  if ((mkdir(".ha/always-empty-directory", 0755) == -1) && (errno != EEXIST)) {
+    perror("Failed to mkdir .ha/always-empty-directory");
+  }
+  if ((w->fd = inotify_init()) == -1) {
+    perror("Failed to initialise inotify");
+    exit (1);
+  }
+  if ((w->watch = inotify_add_watch(w->fd, ".ha/always-empty-directory", IN_CREATE)) == -1) {
+    perror("Failed to add inotify watch");
+    exit (1);
+  }
+  pthread_create(&(w->thread), NULL, watcher_main, (void *)w);
+}
 
 struct lock {
   const char *filename;
@@ -14,6 +59,8 @@ struct lock {
   int fd;
   int nattempts_remaining; /* successful lock attempts remaining before
                               we enter the 'acquired' state */
+  struct watcher *watcher; /* when a lock is acquired we watch for errors
+                              which mean we have lost it */
 };
 
 void lock_init(struct lock *l, const char *filename) {
@@ -24,6 +71,7 @@ void lock_init(struct lock *l, const char *filename) {
     _exit(1);
   }
   l->nattempts_remaining = self_fence_interval * 2; /* NB: safety margin */
+  l->watcher = NULL;
 }
 
 void lock_release(struct lock *l) {
@@ -92,6 +140,11 @@ enum state lock_acquire(struct lock *l) {
   }
   if (!l->acquired) {
     l->acquired = 1;
+    if ((l->watcher = (struct watcher*)malloc(sizeof(struct watcher))) == NULL) {
+      perror("Failed to allocate watcher");
+      exit(1);
+    }
+    watcher_init(l->watcher);
     return ACQUIRED;
   }
   return HOLDING;
