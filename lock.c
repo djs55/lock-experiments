@@ -13,6 +13,7 @@
 const int self_fence_interval = 5;
 
 struct watcher {
+  const char *filename;
   int fd;
   int watch;
   pthread_t thread;
@@ -35,18 +36,16 @@ void watcher_main(void *param) {
   }
 }
 
-void watcher_init(struct watcher *w) {
-  if ((mkdir(".ha", 0755) == -1) && (errno != EEXIST)) {
-    perror("Failed to mkdir .ha");
-  }
-  if ((mkdir(".ha/always-empty-directory", 0755) == -1) && (errno != EEXIST)) {
-    perror("Failed to mkdir .ha/always-empty-directory");
+void watcher_init(struct watcher *w, const char *filename) {
+  w->filename = filename;
+  if ((mkdir(w->filename, 0755) == -1) && (errno != EEXIST)) {
+    perror("Failed to mkdir fence directory");
   }
   if ((w->fd = inotify_init()) == -1) {
     perror("Failed to initialise inotify");
     exit (1);
   }
-  if ((w->watch = inotify_add_watch(w->fd, ".ha/always-empty-directory", IN_CREATE)) == -1) {
+  if ((w->watch = inotify_add_watch(w->fd, w->filename, IN_CREATE)) == -1) {
     perror("Failed to add inotify watch");
     exit (1);
   }
@@ -59,12 +58,14 @@ struct lock {
   int fd;
   int nattempts_remaining; /* successful lock attempts remaining before
                               we enter the 'acquired' state */
+  const char *fence_directory; /* touch a file in here to self-fence */
   struct watcher *watcher; /* when a lock is acquired we watch for errors
                               which mean we have lost it */
 };
 
-void lock_init(struct lock *l, const char *filename) {
+void lock_init(struct lock *l, const char *filename, const char *fence_directory) {
   l->filename = filename;
+  l->fence_directory = fence_directory;
   l->acquired = 0;
   if ((l->fd = open(filename, O_RDWR | O_CREAT, 0644)) == -1) {
     perror(filename);
@@ -144,7 +145,7 @@ enum state lock_acquire(struct lock *l) {
       perror("Failed to allocate watcher");
       exit(1);
     }
-    watcher_init(l->watcher);
+    watcher_init(l->watcher, l->fence_directory);
     return ACQUIRED;
   }
   return HOLDING;

@@ -14,7 +14,11 @@ enum state {
   LOST       /* I've lost the lock */
 };
 
-extern void lock_init(struct lock *lock, const char *filename);
+extern void lock_init(
+  struct lock *lock,
+  const char *filename,       /* filename that represents the lock */
+  const char *fence_directory /* touch a file in here to self-fence */
+);
 
 /* Acquire a lock. This will spawn a thread which will keep checking
    that we still hold the lock. */
