@@ -31,7 +31,6 @@ void *watcher_main(void *param) {
       fprintf(stderr, "Failed to read from inotify, self-fencing\n");
       exit (1);
     }
-    event = (struct inotify_event *) buf;
     fprintf(stderr, "Received an event from inotify, self-fencing\n");
     exit (1);
   }
@@ -60,8 +59,8 @@ struct lock {
   int nattempts_remaining; /* successful lock attempts remaining before
                               we enter the 'acquired' state */
   const char *fence_directory; /* touch a file in here to self-fence */
-  struct watcher *watcher; /* when a lock is acquired we watch for errors
-                              which mean we have lost it */
+  struct watcher watcher; /* when a lock is acquired we watch for errors
+                             which mean we have lost it */
 };
 
 void lock_init(struct lock *l, const char *filename, const char *fence_directory) {
@@ -73,7 +72,6 @@ void lock_init(struct lock *l, const char *filename, const char *fence_directory
     _exit(1);
   }
   l->nattempts_remaining = self_fence_interval * 2; /* NB: safety margin */
-  l->watcher = NULL;
 }
 
 void lock_release(struct lock *l) {
@@ -117,7 +115,6 @@ enum state {
 
 enum state lock_acquire(struct lock *l) {
   struct flock fl;
-
   fl.l_type = F_WRLCK;
   fl.l_start = 0; /* from the start... */
   fl.l_len = 0;   /* ... to the end */
@@ -141,11 +138,7 @@ enum state lock_acquire(struct lock *l) {
   }
   if (!l->acquired) {
     l->acquired = 1;
-    if ((l->watcher = (struct watcher*)malloc(sizeof(struct watcher))) == NULL) {
-      perror("Failed to allocate watcher");
-      exit(1);
-    }
-    watcher_init(l->watcher, l->fence_directory);
+    watcher_init(&l->watcher, l->fence_directory);
     return ACQUIRED;
   }
   return HOLDING;

@@ -1,9 +1,19 @@
+struct watcher {
+  const char *filename;
+  int fd;
+  int watch;
+  pthread_t thread;
+};
 
 struct lock {
   const char *filename;
   int acquired;
   int fd;
-  int nattempts_remaining;
+  int nattempts_remaining; /* successful lock attempts remaining before
+                              we enter the 'acquired' state */
+  const char *fence_directory; /* touch a file in here to self-fence */
+  struct watcher watcher; /* when a lock is acquired we watch for errors
+                             which mean we have lost it */
 };
 
 enum state {
