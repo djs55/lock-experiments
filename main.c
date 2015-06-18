@@ -18,6 +18,8 @@ void tickle_watchdog() {
 
 }
 
+static char spinner[] = { '-', '\\', '|', '/' };
+
 void main_loop(const char *host_lock_path,
                const char *master_lock_path,
                const char *fence_directory,
@@ -28,6 +30,7 @@ void main_loop(const char *host_lock_path,
   int *host_has_self_fenced;
   enum state state;
   int i;
+  int spinner_idx = 0;
 
   lock_init(&host_lock, host_lock_path, fence_directory);
   lock_init(&master_lock, master_lock_path, fence_directory);
@@ -44,6 +47,10 @@ void main_loop(const char *host_lock_path,
     sleep(1);
 
     tickle_watchdog ();
+
+    printf("\b\b\b[%c]", spinner[spinner_idx]);
+    fflush(stdout);
+    spinner_idx = (spinner_idx + 1) % (sizeof spinner);
 
     state = lock_acquire(&host_lock);
     if (state == ACQUIRED) {
