@@ -94,9 +94,10 @@ void main_loop(const char *host_lock_path,
 
 int main(int argc, char **argv) {
   char *uuid; /* This host's uuid */
-  char *fence_directory; /* Touch a file here to self-fence */
   int i, c, digit_optind = 0;
   char uuid_lock_path[PATH_MAX];
+  char tmp_path[PATH_MAX];
+  char fence_path[PATH_MAX];
   char **other_lock_files;
 
   while (1) {
@@ -104,7 +105,6 @@ int main(int argc, char **argv) {
     int option_index = 0;
     static struct option long_options[] = {
       {"uuid",    required_argument, 0,  'u' },
-      {"fencedir",required_argument, 0,  'f' },
       {"verbose", no_argument,       0,  'v' },
       {0,         0,                 0,  0 }
     };
@@ -116,9 +116,6 @@ int main(int argc, char **argv) {
     switch (c) {
       case 'u':
         uuid = strdup(optarg);
-        break;
-      case 'f':
-        fence_directory = strdup(optarg);
         break;
       case 'v':
         verbose = 1;
@@ -132,28 +129,45 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Please supply a host uuid with --uuid <uuid>\n");
     exit(1);
   }
-  if (!fence_directory) {
-    fprintf(stderr, "Please supply a self-fence directory with --fencedir <dir>\n");
-    exit(1);
-  }
 
   if ((mkdir(".ha", 0755) == -1) && (errno != EEXIST)) {
     perror("Failed to mkdir .ha");
+  }
+  if ((mkdir(".ha/master", 0755) == -1) && (errno != EEXIST)) {
+    perror("Failed to mkdir .ha/master");
   }
   if ((mkdir(".ha/host", 0755) == -1) && (errno != EEXIST)) {
     perror("Failed to mkdir .ha/host");
   }
 
-  snprintf(uuid_lock_path, sizeof(uuid_lock_path), ".ha/host/%s.lock", uuid);
+  snprintf(tmp_path, sizeof(tmp_path), ".ha/host/%s", uuid);
+  if ((mkdir(tmp_path, 0755) == -1) && (errno != EEXIST)) {
+    perror("Failed to mkdir .ha/host/<uuid>");
+  }
+  snprintf(uuid_lock_path, sizeof(uuid_lock_path), ".ha/host/%s/lock", uuid);
+  snprintf(fence_path, sizeof(fence_path), ".ha/host/%s/self-fence", uuid);
+  if ((mkdir(fence_path, 0755) == -1) && (errno != EEXIST)) {
+    perror("Failed to mkdir fence_path");
+  }
+
   other_lock_files = (char **)malloc(sizeof(char *) * (argc - optind));
   if (!other_lock_files)
     abort();  
   for (i = 0; i < (argc - optind); i++) {
-    int bytes = snprintf(NULL, 0, ".ha/host/%s.lock", argv[optind + i]);
+    snprintf(tmp_path, sizeof(tmp_path), ".ha/host/%s", argv[optind + i]);
+    if ((mkdir(tmp_path, 0755) == -1) && (errno != EEXIST)) {
+      perror("Failed to mkdir fence_path");
+    }
+    snprintf(tmp_path, sizeof(tmp_path), ".ha/host/%s/self-fence", argv[optind + i]);
+    if ((mkdir(tmp_path, 0755) == -1) && (errno != EEXIST)) {
+      perror("Failed to mkdir fence_path");
+    }
+
+    int bytes = snprintf(NULL, 0, ".ha/host/%s/lock", argv[optind + i]);
     char *path = malloc(bytes);
-    snprintf(path, bytes+1, ".ha/host/%s.lock", argv[optind + i]);
+    snprintf(path, bytes+1, ".ha/host/%s/lock", argv[optind + i]);
     *(other_lock_files + i) = path;
   }
 
-  main_loop(uuid_lock_path, ".ha/master.lock", fence_directory, other_lock_files, argc - optind);
+  main_loop(uuid_lock_path, ".ha/master/lock", fence_path, other_lock_files, argc - optind);
 }

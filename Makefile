@@ -1,3 +1,5 @@
+CFLAGS+=-g
+
 all: main inotify
 
 main: main.o lock.o
@@ -5,3 +7,7 @@ main: main.o lock.o
 
 
 inotify: inotify.o
+
+.PHONY: clean
+clean:
+	rm *.o inotify main
