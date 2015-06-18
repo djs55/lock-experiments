@@ -94,14 +94,13 @@ void main_loop(const char *host_lock_path,
 
 int main(int argc, char **argv) {
   char *uuid; /* This host's uuid */
-  int i, c, digit_optind = 0;
+  int i, c;
   char uuid_lock_path[PATH_MAX];
   char tmp_path[PATH_MAX];
   char fence_path[PATH_MAX];
   char **other_lock_files;
 
   while (1) {
-    int this_option_optind = optind ? optind : 1;
     int option_index = 0;
     static struct option long_options[] = {
       {"uuid",    required_argument, 0,  'u' },
@@ -170,4 +169,5 @@ int main(int argc, char **argv) {
   }
 
   main_loop(uuid_lock_path, ".ha/master/lock", fence_path, other_lock_files, argc - optind);
+  return 0;
 }

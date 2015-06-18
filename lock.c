@@ -8,6 +8,8 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <string.h>
+#include <pthread.h>
 
 /* If we lose the lock, we guarantee to self-fence after this time. */
 const int self_fence_interval = 5;
@@ -19,9 +21,8 @@ struct watcher {
   pthread_t thread;
 };
 
-void watcher_main(void *param) {
+void *watcher_main(void *param) {
   struct watcher *w = (struct watcher *)param;
-  struct inotify_event *event;
   char buf[sizeof(struct inotify_event) + NAME_MAX + 1];
   int n;
 
@@ -116,7 +117,6 @@ enum state {
 
 enum state lock_acquire(struct lock *l) {
   struct flock fl;
-  int ret;
 
   fl.l_type = F_WRLCK;
   fl.l_start = 0; /* from the start... */
