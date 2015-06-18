@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
 
     int bytes = snprintf(NULL, 0, ".ha/host/%s/lock", argv[optind + i]);
     char *path = malloc(bytes + 1);
-    snprintf(path, bytes, ".ha/host/%s/lock", argv[optind + i]);
+    snprintf(path, bytes + 1, ".ha/host/%s/lock", argv[optind + i]);
     *(other_lock_files + i) = path;
   }
 
