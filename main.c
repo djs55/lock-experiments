@@ -84,11 +84,11 @@ void main_loop(const char *host_lock_path,
             /* We will now start competing with this host for its lock. */
           }
         } else {
-          /* We constantly try to acquire another host's lock to sieze
+          /* We constantly try to acquire another host's lock to seize
              its resources and restart its VMs. */
           state = lock_acquire(other_locks + i);
           if (state == ACQUIRED) {
-            printf("I have sized the lock %s: It must have self-fenced. I should restart VMs.\n", (other_locks + i)->filename);
+            printf("I have seized the lock %s: It must have self-fenced. I should restart VMs.\n", (other_locks + i)->filename);
             fflush(stdout);
             *(host_has_self_fenced + i) = 1;
             lock_release(other_locks + i);
